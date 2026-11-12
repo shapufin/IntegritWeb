@@ -20,6 +20,8 @@ services:
     volumes:
       - media:/app/media
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000" # localhost only; Cloudflare Tunnel / local access
     expose:
       - "3000"
 
