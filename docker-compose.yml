@@ -41,8 +41,11 @@ services:
     restart: unless-stopped
     # No `ports:` on purpose: Postgres is reachable only on the internal network.
 
+  # Disabled by default: Cloudflare Tunnel terminates TLS at the edge.
+  # Re-enable with: docker compose --profile caddy up -d
   caddy:
     image: caddy:2-alpine
+    profiles: ["caddy"]
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     ports:
