@@ -1,0 +1,7 @@
+# DOMAIN comes from the environment (see docker-compose.yml / .env).
+# A real public domain gets a Let's Encrypt certificate automatically.
+# DOMAIN=localhost serves HTTPS with Caddy's internal CA (dev only).
+{$DOMAIN:localhost} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

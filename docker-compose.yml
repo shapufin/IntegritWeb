@@ -1,0 +1,69 @@
+# Production: docker compose up -d --build
+# Local dev with a mail catcher: docker compose --profile dev up -d --build
+#   (Mailpit UI at http://localhost:8025)
+services:
+  app:
+    build:
+      context: .
+    env_file: .env
+    environment:
+      # Built from POSTGRES_* so the two can never drift apart.
+      # URL-encode POSTGRES_PASSWORD if it contains reserved characters (@ : / ? # %).
+      DATABASE_URL: postgres://${POSTGRES_USER:-integrit}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-integrit}
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET:?Set PAYLOAD_SECRET in .env}
+      # Defaults point at the dev-profile Mailpit; override in .env for real SMTP.
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - media:/app/media
+    restart: unless-stopped
+    expose:
+      - "3000"
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-integrit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-integrit}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    # No `ports:` on purpose: Postgres is reachable only on the internal network.
+
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit
+    profiles: ["dev"]
+    ports:
+      - "127.0.0.1:8025:8025" # web UI; SMTP (1025) stays internal to the compose network
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:
